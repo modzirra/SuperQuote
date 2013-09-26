@@ -11,6 +11,8 @@
 @interface JADetailViewController : UIViewController <UISplitViewControllerDelegate>
 
 @property (strong, nonatomic) id detailItem;
-
 @property (weak, nonatomic) IBOutlet UILabel *detailDescriptionLabel;
+@property (strong, nonatomic) NSManagedObjectContext *managedObjectContext;
+
+- (void)setDetailItem:(id)newDetailItem managedContext:(NSManagedObjectContext *)newContext;
 @end

@@ -7,7 +7,6 @@
 //
 
 #import "JAMasterViewController.h"
-
 #import "JADetailViewController.h"
 
 @interface JAMasterViewController ()
@@ -34,10 +33,13 @@
     UIBarButtonItem *addButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(insertNewObject:)];
     self.navigationItem.rightBarButtonItem = addButton;
     self.detailViewController = (JADetailViewController *)[[self.splitViewController.viewControllers lastObject] topViewController];
-    //xxximport for empty db
-    [self getCSVFile];
+
     //xxxbackup for corrupted db
     //[self deleteAllEntitys:@"Author"];
+    
+    //xxxpopulate tables with data, switch url for different entities
+    //NSString *urlString = @"http://www.creativedistractions.net/internetquotes/authors.csv";
+    //[self getCSVFile: urlString];
 }
 
 - (void)didReceiveMemoryWarning
@@ -127,7 +129,7 @@
     if ([[segue identifier] isEqualToString:@"showDetail"]) {
         NSIndexPath *indexPath = [self.tableView indexPathForSelectedRow];
         NSManagedObject *object = [[self fetchedResultsController] objectAtIndexPath:indexPath];
-        [[segue destinationViewController] setDetailItem:object];
+        [[segue destinationViewController] setDetailItem:object managedContext:_managedObjectContext];
     }
 }
 
@@ -234,9 +236,11 @@
 {
     NSManagedObject *object = [self.fetchedResultsController objectAtIndexPath:indexPath];
     cell.textLabel.text = [[object valueForKey:@"authorName"] description];
+    
+    NSLog(@"object  %@- ",object);
 }
 
-- (void)getCSVFile
+- (void)getCSVFile:(NSString *)fileUrl
 {
     dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0ul);
     dispatch_async(queue, ^{
@@ -244,7 +248,7 @@
         // Call your method/function here
         // Example:
         // NSString *result = [anObject calculateSomething];
-        NSData *responseData = [NSData dataWithContentsOfURL:[NSURL URLWithString:@"http://www.creativedistractions.net/internetquotes/authors.csv"]];
+        NSData *responseData = [NSData dataWithContentsOfURL:[NSURL URLWithString:fileUrl]];
         
         dispatch_sync(dispatch_get_main_queue(), ^{
             // Update UI
@@ -255,6 +259,8 @@
             
             NSArray *authorData = [NSArray new];
             authorData = [csvResponseString componentsSeparatedByString:@"\n"];
+            
+            //xxxswitch this for different entities, ie author table vs quote table
             [self populateAuthorTable:authorData];
         });
     });
@@ -286,6 +292,37 @@
             NSLog(@"Unresolved error %@, %@", error, [error userInfo]);
             abort();
         }    
+    }
+    //make sure any changes load
+    [self.tableView reloadData];
+}
+
+-(void)populateQuoteTable:(NSArray *)fromArray
+{
+    for(int i = 0; fromArray.count > i; i++)
+    {
+        //new array for split data.  It takes from fromArray by comma
+        NSArray *indyArray = [NSArray new];
+        indyArray = [fromArray[i] componentsSeparatedByString:@","];
+        
+        NSManagedObjectContext *context = [self.fetchedResultsController managedObjectContext];
+        NSEntityDescription *entity = [[self.fetchedResultsController fetchRequest] entity];
+        NSManagedObject *newManagedObject = [NSEntityDescription insertNewObjectForEntityForName:[entity name] inManagedObjectContext:context];
+        
+        // If appropriate, configure the new managed object.
+        // Normally you should use accessor methods, but using KVC here avoids the need to add a custom class to the template.
+        [newManagedObject setValue:indyArray[0] forKey:@"quoteContent"];
+        [newManagedObject setValue:indyArray[1] forKey:@"quoteId"];
+        [newManagedObject setValue:indyArray[2] forKey:@"quoteAuthor"];
+        
+        // Save the context.
+        NSError *error = nil;
+        if (![context save:&error]) {
+            // Replace this implementation with code to handle the error appropriately.
+            // abort() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
+            NSLog(@"Unresolved error %@, %@", error, [error userInfo]);
+            abort();
+        }
     }
     //make sure any changes load
     [self.tableView reloadData];
